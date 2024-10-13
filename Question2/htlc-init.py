@@ -9,5 +9,5 @@ def open_replica_terminals(nodes_num, base_port, max_faulty_nodes):
 
 max_faulty_nodes = 1
 nodes_num = 3 * max_faulty_nodes + 1
-base_port = 5040
+base_port = 5050
 open_replica_terminals(nodes_num, base_port, max_faulty_nodes)
