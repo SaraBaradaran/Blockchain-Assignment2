@@ -23,6 +23,7 @@ class Node:
         self.next_timer = None
         self.last_pre_image = None
         self.last_HTLC_condition = None
+        self.next_HTLC_condition = None
         self.deposit_value = 0
 
     def start(self, host, port):
@@ -52,12 +53,14 @@ class Node:
             threading.Thread(target=self.process_message, args=(message,)).start()
     
     def generate_HTLC_condition(self):
-        """generate an HTLC condition such that condition = H(random_128_bit_number)."""
-        random_128_bit_number = secrets.randbits(128)
-        random_128_bit_bytes = random_128_bit_number.to_bytes(16, byteorder='big')
-        hash_object = hashlib.sha256(random_128_bit_bytes)
-        condition = hash_object.hexdigest()
-        return random_128_bit_number, condition
+        """generate ZK HTLC condition such that y0 = H(x0), y1 = H(x0^x1), etc."""
+        x = []; y = []
+        for i in range(4):
+            x.append(secrets.randbits(128))
+            if i == 0: random_128_bit_number = x[i] 
+            else: random_128_bit_number = x[i] ^ random_128_bit_number
+            y.append(hashlib.sha256(random_128_bit_number.to_bytes(16, byteorder='big')).hexdigest())
+        return x, y
 
     def verify_pre_image(self, pre_image, condition):
         """verify if the provided pre-image is correct for the condition such that H(pre-image) = condition."""
@@ -111,11 +114,12 @@ class Node:
 
         if type == "RELEASE":
             print(f"{GREEN}Node {self.node_id} received a RELEASE message{RESET}")
-            if self.verify_pre_image(json_message["pre-image"], self.last_HTLC_condition):
+            pre_image = self.last_pre_image ^ json_message["pre-image"]
+            if self.verify_pre_image(pre_image, self.last_HTLC_condition):
                 self.next_timer.cancel()
                 if not self.payer and not self.is_expired(self.last_timer):
                     self.reedeem_deposite(self.deposit_value)
-                    json_message = {"type": "RELEASE", "pre-image": json_message["pre-image"]}
+                    json_message = {"type": "RELEASE", "pre-image": pre_image}
                     self.send_message(node_port - 1, json_message)
                     print(f"I released the pre-image to node {self.node_id - 1}")
             else: print("Verification of pre-image failed!")
@@ -135,25 +139,15 @@ class Node:
                 json_message = {"type": "RELEASE", "pre-image": self.last_pre_image}
                 self.send_message(node_port - 1, json_message)
                 print(f"I released the pre-image to node {self.node_id - 1}")
-            else: 
-                self.last_HTLC_condition = condition
-                self.establish_HTLC(node_port + 1, condition, timeout-1, bt=bitcoin)
+            else: self.establish_HTLC(node_port + 1, self.next_HTLC_condition, timeout-1, bt=bitcoin)
             print(f"Current balance is {self.bitcoin}")
         elif type == "HTLC-CONDITION":
             print(f"{GREEN}Node {self.node_id} received an HTLC-CONDITION{RESET}")
-            condition = json_message["condition"]
-            bitcoin = json_message["bitcoin"]
-            self.last_HTLC_condition = condition
-            self.establish_HTLC(node_port + 1, condition, timeout=7, bt=bitcoin)
-        elif type == "PAYMENT":
-            print(f"{GREEN}Node {self.node_id} received a PAYMENT request{RESET}")
-            self.last_pre_image, condition = self.generate_HTLC_condition()
-            bitcoin = json_message["bitcoin"]
-            json_message = {"type": "HTLC-CONDITION", "condition": condition, "bitcoin": bitcoin}
-            print(f"{GREEN}Node {self.node_id} sent an HTLC condition{RESET}")
-            self.send_message((self.node_port - self.node_id) + 1, json_message)
+            self.last_HTLC_condition = json_message["yi"]
+            self.last_pre_image = json_message["xi"]
+            self.next_HTLC_condition = json_message["yi-1"]
         else: print("Invalid message!")
-
+        
     def connect_to_peer(self, peer_host, peer_port):
         """connect to a peer node."""
         try:
@@ -171,11 +165,18 @@ class Node:
             print(f"{BLUE}Node {self.node_id} sent message to peer {peer_port}: {json_message}{RESET}")
         except Exception as e:
             print(f"{RED}Failed to send message to peer {peer_port}: {e}{RESET}")                    
-
+    
     def pay_bitcoin(self, bitcoin):
-        json_message = {"type": "PAYMENT", "bitcoin": bitcoin}
-        self.send_message(self.node_port + 3, json_message) 
+        x, y = self.generate_HTLC_condition()
+        for i in range(1, len(self.peers) + 1):
+            json_message = {"type": "HTLC-CONDITION", "yi": y[nodes_num - 1 - i], 
+                            "xi": x[nodes_num - 1 - i], "yi-1": y[nodes_num - i - 2]}
+            print(f"{GREEN}Node {self.node_id} sent an HTLC condition{RESET}")
+            self.send_message(self.node_port + i, json_message) 
+        self.last_pre_image = x[-1]
+        self.last_HTLC_condition = y[-1] 
         self.payer = True
+        self.establish_HTLC(self.node_port + 1, y[-1], timeout=7, bt=bitcoin)
 
 if __name__ == '__main__':
     nodes_num = int(sys.argv[1])
@@ -201,4 +202,4 @@ if __name__ == '__main__':
             end_time = time.time()
             execution_time.append(end_time - start_time)
             time.sleep(5)
-        print(f"Average execution time for 2 rounds of payment with a simple version of multi-hop HTLC: {sum(execution_time) / len(execution_time)} seconds")
+        print(f"Average execution time for 2 rounds of payment with a ZK version of multi-hop HTLC: {sum(execution_time) / len(execution_time)} seconds")
