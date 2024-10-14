@@ -10,6 +10,13 @@ Upon calling the function `pay_bitcoin` by the first node (sender) creates se
 
 In both cases (normal or zk HTLC), the node that establishes an HTLC starts a timer upon sending an HTLC message to the next node. Similarly, the receiver also starts a timer with the same timeout as specified in the HTLC message upon receiving an HTLC message. In fact, here, I assume that we have a synchronous network where the messages have no delay.
 
+<b>In each version, the sender pays the receiver 2 bitcoin by calling `pay_bitcoin` in 2 different rounds. To compare the performance of the two versions (normal or zk HTLC), I calculate the average execution time of 2 rounds for each version and it would be printed on stdout after finishing 2 rounds of payment. The following shows the outputs for a random execution of the protocol: </b>
+
+```
+Average execution time for 2 rounds of payment with a simple version of multi-hop HTLC: 0.00022482872009277344 seconds
+Average execution time for 2 rounds of payment with a ZK version of multi-hop HTLC: 0.0010714530944824219 seconds
+```
+
 ### How to run the protocol?
 There are two files `htlc-init.py` and `zk-htlc-init.py` in this repository using which you can specify the total number of nodes. To run the system and HTLC protocol for normal case or zero-knowledge version, run the following commands:
 ```
@@ -18,5 +25,3 @@ python3 htlc-init.py
 ```
 python3 zk-htlc-init.py
 ```
-
-
