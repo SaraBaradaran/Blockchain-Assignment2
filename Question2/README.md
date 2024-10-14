@@ -1,4 +1,4 @@
-# HTLC
+# Multi-hop HTLC
 ### Model Summary
 This implementation assumes that given `N` distributed nodes, the first node wants to pay the last node `b` bitcoin by establishing `N-1` HTLC connections. In the beginning, each node tries to connect to other nodes by calling the method `connect_to_peer`. Thus, we have a fully connected network topology in which every node is connected to all the other nodes. For simplicity, I assume the balance of each node is initially `r` bitcoin and for each payment the first node pays the last node 1 bitcoin.
 
