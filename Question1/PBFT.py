@@ -215,7 +215,6 @@ class Node:
             if predicate: 
                 self.broadcast_commit_message(v, n, d)
                 break
-        
 
     def check_for_execution(self, m, v, n):            
         d = self.get_digest(m)
