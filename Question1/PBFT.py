@@ -14,6 +14,7 @@ GREEN = "\033[92m"; RED = "\033[91m"; BLUE = "\033[34m"; RESET = "\033[0m"
 
 h = 1; H = 20; seq_no = 1
 max_faulty_nodes = 0
+timeout = 7
 
 class Node:
     def __init__(self, node_id, nodes_num):
@@ -21,18 +22,21 @@ class Node:
         self.message_log = []
         self.state = "$"
         self.view = 0
+        self.timer = None
         self.is_primary = (self.view % nodes_num == node_id)
         self.peers = {}
         self.private_key, self.public_key = self.generate_rsa_keys()
-        #threading.Thread(target=self.check_if_is_primary, args=()).start()
+        threading.Thread(target=self.check_if_is_primary, args=()).start()
     
     def check_if_is_primary(self):
         time.sleep(6) # wait a little to make sure all the nodes start to work
-        while True:
+        operations = [1, 2, 3, 4]
+        index = 0
+        while index < len(operations):
             self.is_primary = (self.view % nodes_num == node_id)
             if self.is_primary:
-                self.broadcast_preprepare_message(random.randint(1, 10))
-            time.sleep(3)
+                self.broadcast_preprepare_message(operations[index])
+            index = index + 1; time.sleep(13)
 
     def generate_rsa_keys(self):
         """generate the pair of public key and private key"""
@@ -154,12 +158,20 @@ class Node:
         string_message2 = json.dumps(json_message2)
         signed_message2 = self.sign_message(string_message2)
         
-        counter = 0
-        for peer_port in self.peers:
-            if counter < max_faulty_nodes: self.send_message(peer_port, {"signed_message": signed_message1, "message": string_message1, "client_req": string_request1})
-            else: self.send_message(peer_port, {"signed_message": signed_message2, "message": string_message2, "client_req": string_request2})
-            counter = counter + 1
-        print("equivocation is done!")
+        if self.node_id != 0:
+            for peer_port in self.peers:
+                self.send_message(peer_port, {"signed_message": signed_message1, "message": string_message1, "client_req": string_request1})
+        else:
+            counter = 0
+            for peer_port in self.peers:
+                if counter < max_faulty_nodes: self.send_message(peer_port, {"signed_message": signed_message1, "message": string_message1, "client_req": string_request1})
+                else: self.send_message(peer_port, {"signed_message": signed_message2, "message": string_message2, "client_req": string_request2})
+                counter = counter + 1
+            print("equivocation is done!")
+
+        self.timer = threading.Timer(timeout, self.ignore_request, args=())
+        self.timer.start() 
+        print(f"Timer start to work with timeout {timeout} seconds!")
         # run a thread to continuously check whether prepared(m, v, n, i) is true
         threading.Thread(target=self.check_for_commit, 
             args=(json_request1, json_message1["v"], json_message1["n"])).start()
@@ -195,30 +207,32 @@ class Node:
     def check_for_commit(self, m, v, n):
         d = self.get_digest(m)
         json_message = {"phase": "PRE-PREPARE", "v": v, "n": n, "d": d}
-        while True:
+        while self.timer:
             t = self.count_logs(v, n, d, "PREPARE")
             predicate = (m in self.message_log and json_message in self.message_log and t >= 2 * max_faulty_nodes)
             print(f"prepared(m, {v}, {n}, {self.node_id}) = {predicate}")
-            time.sleep(1)
-            if predicate: break
-        self.broadcast_commit_message(v, n, d)
+            time.sleep(0.5)
+            if predicate: 
+                self.broadcast_commit_message(v, n, d)
+                break
+        
 
     def check_for_execution(self, m, v, n):            
         d = self.get_digest(m)
         json_message = {"phase": "PRE-PREPARE", "v": v, "n": n, "d": d}
-        while True:
+        while self.timer:
             t1 = self.count_logs(v, n, d, "PREPARE")
             t2 = self.count_logs(v, n, d,  "COMMIT")
             predicate = (m in self.message_log and json_message in self.message_log 
                             and t1 >= 2 * max_faulty_nodes and t2 >= (2 * max_faulty_nodes + 1))
             print(f"committed-local(m, {v}, {n}, {self.node_id}) = {predicate}")
-            time.sleep(1)
+            time.sleep(0.5)
             if predicate: 
-                print(f"{RED}Hey! Node {self.node_id} successfully executed the operation!{RESET}"); 
+                print(f"{RED}Hey! Node {self.node_id} successfully executed the operation!{RESET}") 
                 self.state += str(m["message"])
-                print(f"{RED}The current state of node {self.node_id} is {self.state}!{RESET}"); 
+                self.timer.cancel()
+                print(f"{RED}The current state of node {self.node_id} is {self.state}!{RESET}")
                 break
-        print("Operation has benn executed!")
 
     def count_logs(self, v, n, d, phase):
         count = 0
@@ -227,17 +241,26 @@ class Node:
                 and log["n"] == n and log["d"] == d):
                 count = count + 1
         return count
-            
+    
+    def ignore_request(self):
+        self.timer = None
+        print(f"{RED}Timeout: Operation has not been executed after {timeout} seconds!{RESET}")
+        self.view = self.view + 1
+        print(f"{RED}The current state of node {self.node_id} is {self.state}!{RESET}")
+
     def process_message(self, packet, public_key_pem):
         """process the PBFT message based on the phase."""
         json_message = json.loads(packet["message"])
         phase = json_message["phase"]
 
-        if phase == "PRE-PREPARE" and not self.is_primary:
+        if phase == "PRE-PREPARE":
             if self.accept_preprepare_message(packet, public_key_pem):
                 print(f"{GREEN}Node {self.node_id} accepted the PRE-PREPARE message{RESET}")
                 self.broadcast_prepare_message(packet)
                 json_request = json.loads(packet["client_req"])
+                self.timer = threading.Timer(timeout, self.ignore_request, args=())
+                self.timer.start() 
+                print(f"Timer start to work with timeout {timeout} seconds!")
                 # run a thread to continuously check whether prepared(m, v, n, i) is true
                 threading.Thread(target=self.check_for_commit, 
                     args=(json_request, json_message["v"], json_message["n"])).start()
@@ -252,7 +275,7 @@ class Node:
             if self.accept_commit_message(packet, public_key_pem):
                 self.message_log.append(json_message)
                 print(f"{GREEN}Node {self.node_id} accepted the COMMIT message{RESET}")
-        else: print("Invalid message!")
+        else: print(f"Invalid message! {json_message}")
 
     def accept_preprepare_message(self, packet, primary_public_key):
         signed_message = packet["signed_message"]
@@ -313,7 +336,3 @@ if __name__ == '__main__':
     for i in range(nodes_num):
         if i != node_id:
             node.connect_to_peer('localhost', base_port + i)
-
-if node_id == 0:
-    time.sleep(6) # wait a little to make sure all the nodes start to work
-    node.broadcast_preprepare_message(random.randint(1, 10))
