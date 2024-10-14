@@ -8,5 +8,5 @@ def open_replica_terminals(nodes_num, base_port):
         subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script "{command}"'])
 
 nodes_num = 4
-base_port = 5050
+base_port = 5040
 open_replica_terminals(nodes_num, base_port)
