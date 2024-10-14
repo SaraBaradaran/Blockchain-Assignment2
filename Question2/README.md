@@ -11,9 +11,10 @@ Upon calling the function `pay_bitcoin` by the first node (sender) creates se
 In both cases (normal or zk HTLC), the node that establishes an HTLC starts a timer upon sending an HTLC message to the next node. Similarly, the receiver also starts a timer with the same timeout as specified in the HTLC message upon receiving an HTLC message. In fact, here, I assume that we have a synchronous network where the messages have no delay.
 
 ### How to run the protocol?
-There is a file `htlc-init.py` in this repository using which you can specify the total number of nodes and the maximum number of Byzantine nodes. To run the system and HTLC protocol, run the following command:
+There are two files `htlc-init.py` and `zk-htlc-init.py` in this repository using which you can specify the total number of nodes. To run the system and HTLC protocol for normal case or zero-knowledge version, run the following commands:
 ```
-python3 init.py
+python3 htlc-init.py
+python3 zk-htlc-init.py
 ```
 
 
