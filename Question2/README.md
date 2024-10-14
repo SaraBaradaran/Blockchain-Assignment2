@@ -14,6 +14,8 @@ In both cases (normal or zk HTLC), the node that establishes an HTLC starts a ti
 There are two files `htlc-init.py` and `zk-htlc-init.py` in this repository using which you can specify the total number of nodes. To run the system and HTLC protocol for normal case or zero-knowledge version, run the following commands:
 ```
 python3 htlc-init.py
+```
+```
 python3 zk-htlc-init.py
 ```
 
