@@ -28,12 +28,14 @@ class Node:
 
     def check_if_is_primary(self):
         time.sleep(6) # wait a little to make sure all the nodes start to work
-        while True:
+        operations = [1, 2, 3, 4]
+        index = 0
+        while index < len(operations):
             self.is_primary = (self.round == self.node_id)
             if self.is_primary: 
-                self.consensus(random.randint(1, 10))
+                self.consensus(operations[index])
                 self.round += 1
-            time.sleep(1)
+            index = index + 1; time.sleep(3)
 
     def generate_rsa_keys(self):
         """generate the pair of public key and private key."""
@@ -144,15 +146,15 @@ class Node:
                 self.state += str(json_message["next_state"])
                 self.round += 1
                 print(f"{RED}The current state of node {self.node_id} is {self.state}{RESET}")
-        if type == "REPLY" and self.is_primary:
+        elif type == "REPLY" and self.is_primary:
             if self.accept_message(packet, public_key_pem):
                 print(f"{GREEN}Node {self.node_id} accepted the REPLY message{RESET}")
                 self.message_log.append(json_message)
         elif type == "PROPOSAL":
             if self.accept_message(packet, public_key_pem):
                 print(f"{GREEN}Node {self.node_id} accepted the PROPOSAL message{RESET}")
-                self.send_reply_message(random.randint(1, 10))
-        else: print("Invalid message!")
+                self.send_reply_message(random.randint(5, 10))
+        else: print(f"Invalid message! {json_message}")
 
     def accept_message(self, packet, replica_public_key):
         """accept a message if its signature is verified"""
@@ -196,7 +198,7 @@ class Node:
         string_message1 = json.dumps(json_message1)
         signed_message1 = self.sign_message(string_message1)
 
-        if self.node_id != 1:
+        if self.node_id != 0:
             for peer_port in self.peers:
                 self.send_message(peer_port, {"signed_message": signed_message1, "message": string_message1})
             return
