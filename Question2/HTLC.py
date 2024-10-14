@@ -181,7 +181,6 @@ if __name__ == '__main__':
     nodes_num = int(sys.argv[1])
     base_port = int(sys.argv[2])
     node_id = int(sys.argv[3])
-    max_faulty_nodes = int(sys.argv[4])
     
     node_port = base_port + node_id
     node = Node(node_id=node_id, nodes_num=nodes_num, node_port=node_port)
