@@ -16,9 +16,10 @@ contract NFTAuction {
     mapping(address => uint256) public bids;
     address[] public bidders;
 
-    event NewBid(address indexed bidder, uint256 price, uint256 tokenId);
-    event AuctionEnded(address indexed winner, uint256 price, uint256 tokenId);
-    event MoneySent(address indexed seller, uint256 price, uint256 tokenId);
+    event NewBid(address indexed bidder, uint256 amount, uint256 tokenId);
+    event AuctionEnded(address indexed winner, uint256 amount, uint256 tokenId);
+    event MoneySent(address indexed seller, uint256 amount, uint256 tokenId);
+    event Refund(address indexed nonwinner, uint256 amount, uint256 tokenId);
 
     constructor(uint256 nftId) {
         seller = msg.sender;
@@ -67,6 +68,7 @@ contract NFTAuction {
             if (bidders[i] != highestBidder) {
                 uint256 money = bids[bidders[i]];
                 payable(bidders[i]).transfer(money);
+                emit Refund(bidders[i], money, tokenId);
             }
         }
     }
