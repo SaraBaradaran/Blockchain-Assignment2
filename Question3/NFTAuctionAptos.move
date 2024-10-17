@@ -93,8 +93,8 @@ module 0x1::NftAuction {
         //If bidders reach 3, finalize the auction and transfer ownership
         if (vector::length(&auction.bidders) == 3) {
             end_auction(auction);
-	          transfer_ownership(auction);
-	          refund_non_winners(auction);
+            transfer_ownership(auction);
+            refund_non_winners(auction);
         }
     }
 
@@ -102,14 +102,14 @@ module 0x1::NftAuction {
     fun end_auction(auction: &mut Auction) {
         assert!(!auction.ended, 2);
         auction.ended = true;
-	      event::emit_event(&mut auction.event_auction_end, AuctionEndEvent { 
-		        winner: auction.highest_bidder, price: auction.highest_bid, token_id: auction.token_id 
+        event::emit_event(&mut auction.event_auction_end, AuctionEndEvent { 
+            winner: auction.highest_bidder, price: auction.highest_bid, token_id: auction.token_id 
         });
     }
 
     // This function transfers the money to the seller
     fun transfer_ownership(auction: &mut Auction) {
-	      let auction_balance_ref: &mut Coin<AptosCoin> = &mut auction.balance;
+        let auction_balance_ref: &mut Coin<AptosCoin> = &mut auction.balance;
         let extracted_coins: Coin<AptosCoin> = coin::extract(auction_balance_ref, auction.highest_bid);
         coin::deposit(auction.seller, extracted_coins);
         event::emit_event(&mut auction.event_money_sent, MoneySentEvent {
@@ -119,11 +119,11 @@ module 0x1::NftAuction {
      
     // This function refunds bids to non-winners
     fun refund_non_winners(auction: &mut Auction) {
-	      let bidders_count = vector::length(&auction.bidders);
+        let bidders_count = vector::length(&auction.bidders);
         let counter = 0;
         while (counter < bidders_count) {
-            let bidder_address = *vector::borrow(&auction.bidders, counter);
-	          if (auction.highest_bidder != bidder_address) {
+        let bidder_address = *vector::borrow(&auction.bidders, counter);
+            if (auction.highest_bidder != bidder_address) {
                 let money = *table::borrow(&auction.bids, bidder_address);
                 let auction_balance_ref: &mut Coin<AptosCoin> = &mut auction.balance;
                 let extracted_coins: Coin<AptosCoin> = coin::extract(auction_balance_ref, money);
@@ -131,7 +131,7 @@ module 0x1::NftAuction {
                 event::emit_event(&mut auction.event_refund, RefundEvent { 
                     nonwinner: bidder_address, price: money, token_id: auction.token_id 
                 });		
-	          }; 
+            }; 
             counter = counter + 1;
         }
     }
