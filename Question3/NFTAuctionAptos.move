@@ -54,12 +54,12 @@ module 0x1::NftAuction {
             seller,
             winner: seller,
             highest_bid: 0,
-	          highest_bidder: seller,
+            highest_bidder: seller,
             token_id,
             ended: false,
             bids: table::new<address, u64>(),
             bidders: vector::empty<address>(),
-	          balance: coin::zero<AptosCoin>(),
+            balance: coin::zero<AptosCoin>(),
             event_bid: account::new_event_handle<BidEvent>(account),
             event_auction_end: account::new_event_handle<AuctionEndEvent>(account),
             event_refund: account::new_event_handle<RefundEvent>(account),
@@ -86,7 +86,7 @@ module 0x1::NftAuction {
             auction.highest_bidder = bidder;
         };
 
-	      event::emit_event(&mut auction.event_bid, BidEvent {
+        event::emit_event(&mut auction.event_bid, BidEvent {
             bidder: bidder, price: bid_amount, token_id: auction.token_id 
         });
 	
